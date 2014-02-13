@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% from "_formhelpers.html" import render_field %}
+{% block header %}
+	<h1>File Security</h1>
+{% endblock %}
+
+{% block body %}
+    {% if not session['sign_in'] %}
+        <dt><a href="{{ url_for('registration') }}">Sing up</a></dt>
+        <dt><a href="{{ url_for('sign_in') }}">Sing in</a></dt>
+    {% else %}
+        <dt><a href="{{ url_for('sign_out') }}">Sing out</a></dt>
+        <dt><a href="{{ url_for('create_file') }}">Create file</a></dt>
+        <dt><a href="{{ url_for('old_files') }}">Old files</a></dt>
+    {% endif %}
+
+{% endblock %}
+{% block info %}
+    
+{% endblock %}
+
+{% block log %}
+    
+{% endblock %}
