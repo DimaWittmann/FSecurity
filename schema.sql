@@ -10,6 +10,7 @@ drop table if exists file;
 create table file(
     file_id integer primary key autoincrement,
     profile_id integer,
-    name varchar(20) not null,
-    referens varchar(20) not null
+    title varchar not null,
+    reference varchar not null
 );
+

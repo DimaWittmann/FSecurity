@@ -1,4 +1,4 @@
-{% macro render_field(field) %}
+{% macro render_field(field, value=None) %}
 	<dt>{{ field.label }}</dt>
 	<dd>{{ field(*kwards)|safe}}
 	{% if field.errors %}
@@ -8,5 +8,6 @@
 			{% endfor %}
 		</ul>
 	{% endif %}
+
 	</dd>
 {% endmacro %}

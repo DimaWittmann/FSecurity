@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+
+{% block body %}
+	<ol>
+	{% for file in files%}
+	  <li> {{file[0]}} - {{file[1]}}</li>
+	{% endfor %}
+	</ol>
+
+{% endblock %}
+{% block info %}
+    
+{% endblock %}
+
+{% block log %}
+    
+{% endblock %}

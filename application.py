@@ -19,7 +19,7 @@ app.config.from_envvar('FLASKR_SETTINGS', silent=True)
 def connect_db():
     """Connects to the specific database."""
     rv = sqlite3.connect(app.config['DATABASE'])
-    return rv.cursor()
+    return rv
 
 
 def get_db():
@@ -46,23 +46,58 @@ def init_db():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    form = NewFileForm(request.form)
-    if request.method == 'POST' and form.validate():
-        file = open(form.title.data, 'w+')
-        file.write(form.content.data)
-        flash("new file created")
     var = {}
-    var['title'] = 'FSecurity'
-    var['form'] = form
+    if session["sign_in"]:
+        var['title'] = 'FSecurity | {user}'.format(user=session["nickname"])
+    else:
+        var['title'] = 'FSecurity'
     return render_template('index.html', **var)
+
+def create_new_file(title, text):
+    if session["sign_in"]:
+        dir_name = "Files/{user}".format(user=session["nickname"])
+        file_name = "{dir}/{file}".format(dir=dir_name, file=title)
+        
+        db = get_db()
+        count = db.cursor().execute("select count(*) from file where title = ? ;", [title]).fetchone()[0]
+        if count == 0:
+            db.cursor().execute('insert into file(profile_id, title, reference) values(?, ?, ?);', \
+                       [session["id"], title, file_name])
+            db.commit()
+            if not os.path.exists(dir_name):
+                os.makedirs(dir_name)
+            with open(file_name, 'w') as file:
+                file.write(text)
+                flash("{file} is created".format(file=title))
+        else:
+            flash("{file} is exists".format(file=title))
+    else:
+        flash("Please, sign in before create file")
+    
+
+
 
 @app.route('/create_file', methods=['GET', 'POST'])
 def create_file():
-    pass
+    form = NewFileForm(request.form)
+    if request.method == 'POST' and form.validate():
+        create_new_file(form.title.data, form.content.data)
+    
+    var = {}
+    var['title'] = 'FSecurity | New File'
+    var['form'] = form
+    return render_template('new_file.html', **var)
+        
 
 @app.route('/old_files', methods=['GET', 'POST'])
 def old_files():
-    pass
+    var = {}
+    var['title'] = 'FSecurity | {user} files'.format(user=session["nickname"])
+    db = get_db()
+    query = db.cursor().execute("select title, reference from file where profile_id = ?  ;", \
+                           [session["id"]]).fetchall()
+    var['files'] = query
+    return render_template('old_files.html', **var)
 
 
 @app.route('/registration', methods=['GET', 'POST'])
@@ -70,9 +105,9 @@ def registration():
     form = RegistrationForm(request.form)
     if request.method == 'POST' and form.validate():
         db = get_db()
-        count = db.execute("select count(*) form profile where login = ? ;", [form.nickname.data]).fetchone()[0]
+        count = db.execute("select count(*) from profile where login = ? ;", [form.nickname.data]).fetchone()[0]
         if (count == 0):
-            db.execute('insert into profile(login, password) values(?, ?);', \
+            db.cursor().execute('insert into profile(login, password) values(?, ?);', \
                        [form.nickname.data, form.password.data])
             db.commit()
             flash('Thank you for registering')
@@ -98,12 +133,13 @@ def sign_in():
     form = SignInForm(request.form)
     if request.method == 'POST' and form.validate():
         db = get_db()
-        count = db.execute("select count(*) from profile where login = ? and password =? ;", \
-                           [form.nickname.data, form.password.data]).fetchone()[0]
-        if (count == 1):
+        query = db.cursor().execute("select * from profile where login = ? and password =? ;", \
+                           [form.nickname.data, form.password.data]).fetchall()
+        if (len(query)==1):
             session["sign_in"] = True
             session["nickname"] = form.nickname.data
-            flash("Hello {user}!".format(user=session["nickname"]))
+            session["id"] = query[0][0]
+            flash("Hello {id} {user}!".format(id=session["id"], user=session["nickname"]))
             return redirect(url_for('index'))
         else:
             flash("Wrong user")
@@ -113,8 +149,8 @@ def sign_in():
     var['form'] = form
     return render_template('sign_in.html', **var)
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     if not os.path.isfile(app.config['DATABASE']):
         init_db()
     app.run()

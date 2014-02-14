@@ -1,6 +1,7 @@
 from wtforms import Form,  TextField, PasswordField, TextAreaField, validators
 
 class NewFileForm(Form):
+    
     title = TextField("Name", [validators.required("Please, enter title")])
 
     content = TextAreaField("Content", [validators.required("Please, enter content")])

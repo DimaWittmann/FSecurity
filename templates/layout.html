@@ -10,7 +10,9 @@
 <body>
     <div class="page">
         <div class="header">
-            {% block header %}{% endblock %}
+            {% block header %}
+				<h1>File Security</h1>
+			{% endblock %}
         </div>
         <div id="flashed">
             {% for message in get_flashed_messages() %}
