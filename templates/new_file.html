@@ -6,7 +6,7 @@
 	<form method="post" action="{{ url_for('create_file') }}">
     	<dl>
 			{{ render_field( form.title )}}
-			{{ render_field( form.content )}}	
+			{{ render_field( form.content)}}	
        	</dl>
         <p><input type="submit" value="Add file"/></p>
 	</form>

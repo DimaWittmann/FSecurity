@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% from "_formhelpers.html" import render_field %}
+
+
+{% block body %}
+	<script>
+        $(function(){
+        	var text = "{{form.default_content}}"
+            $("#content").attr("value", text);
+        })
+
+    </script>
+	<form method="post" action="{{ url_for('modify_file', file_id=file_id) }}">
+    	<dl>
+			{{ render_field( form.title, value=form.default_title)}}
+			{{ render_field( form.content)}}	
+       	</dl>
+        <p><input type="submit" value="Modify file"/></p>
+	</form>
+{% endblock %}
+{% block info %}
+    
+{% endblock %}
+
+{% block log %}
+    
+{% endblock %}

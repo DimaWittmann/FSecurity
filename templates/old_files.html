@@ -3,7 +3,11 @@
 {% block body %}
 	<ol>
 	{% for file in files%}
-	  <li> {{file[0]}} - {{file[1]}}</li>
+	  <li> {{file[0]}}  <a href="{{url_for('file', file_id=file[1])}}">View file</a> 
+						<a href="{{url_for('modify_file', file_id=file[1])}}">Modify file</a>
+						<a href="{{url_for('delete_file', file_id=file[1])}}">Delete file</a>
+						</li>
+						
 	{% endfor %}
 	</ol>
 
