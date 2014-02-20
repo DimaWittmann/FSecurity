@@ -3,6 +3,7 @@ from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash
 import os.path
 from forms import NewFileForm, SignInForm, RegistrationForm
+from flask.ext.mail import Mail, Message
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -12,9 +13,23 @@ app.config.update(dict(
     DEBUG=True,
     SECRET_KEY='development key',
     USERNAME='admin',
-    PASSWORD='default'
+    PASSWORD='default',
+    
+    MAIL_SERVER='smtp.gmail.com',
+    MAIL_PORT= 465,
+    MAIL_USE_TLS = False,
+    MAIL_USE_SSL= True,
+    MAIL_USERNAME = 'DimaWittmann@gmail.com',
+    MAIL_PASSWORD = '14031993',
+    DEFAULT_MAIL_SENDER = 'DimaWittmann@gmail.com'
+
 ))
+
+
+mail = Mail(app)
+
 app.config.from_envvar('FLASKR_SETTINGS', silent=True)
+
 
 def connect_db():
     """Connects to the specific database."""
@@ -46,6 +61,17 @@ def init_db():
 def is_logged():
     return session["sign_in"]
 
+
+def send_mail(recipient, title, text):
+    message = Message(
+                      title, 
+                      sender='DimaWittmann@gmail.com',
+                      recipients = [recipient])
+    
+    message.body = text
+    mail.send(message)
+
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     var = {}
@@ -53,9 +79,12 @@ def index():
     if hasattr(session, "sign_in"):
         if session["sign_in"]:
             var['title'] = 'FSecurity | {user}'.format(user=session["nickname"])
+            
+            
 
         
     return render_template('index.html', **var)
+
 
 def create_new_file(title, text, modify=False):
     
@@ -76,11 +105,21 @@ def create_new_file(title, text, modify=False):
             with open(file_name, 'w') as file:
                 file.write(text)
                 flash("{file} is created".format(file=title))
+                db = get_db()
+                db.cursor().execute('insert into log(profile_id, description, warning_level) values(?, ?, ?);', \
+                        [session["id"], 
+                        "user create {file}".format(file=title), 0])
+                db.commit()
         elif modify:
             
             with open(file_name, 'w') as file:
                 file.write(text)
                 flash("{file} is modify".format(file=title))
+                db = get_db()
+                db.cursor().execute('insert into log(profile_id, description, warning_level) values(?, ?, ?);', \
+                        [session["id"], 
+                        "user modify {file}".format(file=title), 0])
+                db.commit()
         else:
             flash("{file} is exists".format(file=title))
     else:
@@ -161,6 +200,11 @@ def delete_file(file_id):
     db.cursor().execute("DELETE FROM file WHERE file_id = ? ", (query[0],))
     db.commit()
     flash("File {file} is deleted".format(file=query[1]))
+    db = get_db()
+    db.cursor().execute('insert into log(profile_id, description, warning_level) values(?, ?, ?);', \
+            [session["id"], 
+            "user create {file}".format(file=query[1]), 1])
+    db.commit()
     return redirect(url_for('index'))
 
 
@@ -186,10 +230,26 @@ def registration():
         db = get_db()
         count = db.execute("select count(*) from profile where login = ? ;", [form.nickname.data]).fetchone()[0]
         if (count == 0):
-            db.cursor().execute('insert into profile(login, password) values(?, ?);', \
-                       [form.nickname.data, form.password.data])
+            db.cursor().execute('insert into profile(login, password, email) values(?, ?, ?);', \
+                       [form.nickname.data, form.password.data, form.email.data])
             db.commit()
+            
+            title = "FSecurity registration"
+            text = """
+            Hello, {user}
+            You are registered to FSecurity
+            Your password is {password} 
+            """.format(user=form.nickname.data, password=form.password.data)
+            
+            send_mail(form.email.data, title, text)
+            
             flash('Thank you for registering')
+            
+            db = get_db()
+            db.cursor().execute('insert into log(profile_id, description, warning_level) values(?, ?, ?);', \
+            [session["id"], "{user} created".format(user=form.nickname.data), 0])
+            db.commit()
+            
             return redirect(url_for('index'))
         else:
             flash('Nickname have been captured before')
@@ -200,6 +260,16 @@ def registration():
     var['form'] = form
     return render_template('registration.html', **var)
 
+@app.route('/db/<table_name>')
+def show_db(table_name):
+    
+    db = get_db()
+    query = db.cursor().execute("select * from {table} ;"\
+                                .format(table=table_name)).fetchall()
+    var = {}
+    var['title'] = 'FSecurity | Database'
+    var['query'] = query
+    return render_template('db.html', **var)
 
 @app.route('/sign_out')
 def sign_out():
@@ -225,12 +295,19 @@ def sign_in():
             return redirect(url_for('index'))
         else:
             flash("Wrong user")
+            db = get_db()
+            db.cursor().execute('insert into log(profile_id, description, warning_level) values(?, ?, ?);', \
+            [None, "{user} try to enter with {password}"\
+             .format(user=form.nickname.data, password=form.password.data), 2])
+            db.commit()
         
     var = {}
     var['title'] = 'FSecurity | Sign in'
     var['form'] = form
     return render_template('sign_in.html', **var)
 
+
+    
 
 if __name__ == '__main__':
     if not os.path.isfile(app.config['DATABASE']):

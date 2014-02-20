@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% from "_formhelpers.html" import render_field %}
+
+
+{% block body %}
+	<table>
+	{% for line in query %}
+		<tr>
+		{% for cell in line%}
+	    	<td>{{cell}}</td>
+    	{% endfor %}
+		</tr>
+  	{% endfor %}
+	</table>
+{% endblock %}
+{% block info %}
+    
+{% endblock %}
+
+{% block log %}
+    
+{% endblock %}

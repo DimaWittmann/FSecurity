@@ -15,9 +15,10 @@ class SignInForm(Form):
 class RegistrationForm(Form):
     nickname = TextField("Login", [validators.required("Please, enter nickname"), ])
 
-
     password = PasswordField("Password", [validators.Required("Please, enter password")])
 
     confirm = PasswordField("Confirm",  [validators.EqualTo("password", message="Passwords do not match")])
+    
+    email = TextField("E-Mail", [validators.Email("EMail")])
 
 
