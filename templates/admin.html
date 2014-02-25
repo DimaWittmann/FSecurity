@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% from "_formhelpers.html" import render_field %}
+
+
+{% block body %}
+    
+	<ol>
+	{% for file in files%}
+		<table border="1">
+			<tr>
+				<td>{{file[1]}}</td>
+		  		<td>{{file[0]}} von {{file[2]}} </td>
+		  		<td><a href="{{url_for('file', file_id=file[1])}}">View file</a> </td>
+				<td><a href="{{url_for('modify_file', file_id=file[1])}}">Modify file</a></td>
+				<td><a href="{{url_for('delete_file', file_id=file[1])}}">Delete file</a></td>
+
+			</tr>
+		</table>
+	{% endfor %}
+	</ol>
+
+
+{% endblock %}
+{% block info %}
+    
+{% endblock %}
+
+{% block log %}
+    
+{% endblock %}

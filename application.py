@@ -19,9 +19,9 @@ app.config.update(dict(
     MAIL_PORT= 465,
     MAIL_USE_TLS = False,
     MAIL_USE_SSL= True,
-    MAIL_USERNAME = 'DimaWittmann@gmail.com',
-    MAIL_PASSWORD = '14031993',
-    DEFAULT_MAIL_SENDER = 'DimaWittmann@gmail.com'
+    MAIL_USERNAME = 'fslabv14@gmail.com',
+    MAIL_PASSWORD = 'tghmns56',
+    DEFAULT_MAIL_SENDER = 'fslabv14@gmail.com'
 
 ))
 
@@ -59,6 +59,9 @@ def init_db():
         db.commit()
 
 def is_logged():
+    if(session["admin"]):
+        return True
+    
     return session["sign_in"]
 
 
@@ -154,8 +157,8 @@ def modify_file(file_id):
         create_new_file(form.title.data, form.content.data, modify=True)
 
     db = get_db()
-    query = db.cursor().execute("select title, reference from file where profile_id = ? and file_id = ?;", \
-                       [session["id"], file_id]).fetchone()
+    query = db.cursor().execute("select title, reference from file where file_id = ?;", \
+                       [file_id]).fetchone()
     file = open(query[1], 'r')
     content = file.read()
     form.default_title = query[0]
@@ -175,8 +178,8 @@ def file(file_id):
         return redirect(url_for('index'))
 
     db = get_db()
-    query = db.cursor().execute("select title, reference from file where profile_id = ? and file_id = ?;", \
-                           [session["id"], file_id]).fetchone()
+    query = db.cursor().execute("select title, reference from file where file_id = ?;", \
+                           [file_id]).fetchone()
 
     file = open(query[1], 'r')
     content = file.read()
@@ -193,8 +196,8 @@ def delete_file(file_id):
         return redirect(url_for('index'))
 
     db = get_db()
-    query = db.cursor().execute("select file_id, title, reference from file where profile_id = ? and file_id = ?;", \
-                           [session["id"], file_id]).fetchone()
+    query = db.cursor().execute("select file_id, title, reference from file where file_id = ?;", \
+                           [file_id]).fetchone()
 
     os.remove(query[2])
     db.cursor().execute("DELETE FROM file WHERE file_id = ? ", (query[0],))
@@ -260,16 +263,20 @@ def registration():
     var['form'] = form
     return render_template('registration.html', **var)
 
-@app.route('/db/<table_name>')
-def show_db(table_name):
+@app.route('/admin/files')
+def show_all_files():
+    if not session['admin']:
+        return redirect(url_for('index'))
     
     db = get_db()
-    query = db.cursor().execute("select * from {table} ;"\
-                                .format(table=table_name)).fetchall()
+    query = db.cursor().execute('''select file.title, file.file_id, profile.login
+                                from file 
+                                join profile
+                                where profile.profile_id == file.profile_id;''').fetchall()
     var = {}
-    var['title'] = 'FSecurity | Database'
-    var['query'] = query
-    return render_template('db.html', **var)
+    var['title'] = 'FSecurity | All files'
+    var['files'] = query
+    return render_template('admin.html', **var)
 
 @app.route('/sign_out')
 def sign_out():
@@ -277,6 +284,7 @@ def sign_out():
     session["sign_in"] = False
     session["id"] = None
     session["nickname"] = None
+    session["admin"] = False
     return redirect(url_for("index"))
 
 
@@ -284,6 +292,11 @@ def sign_out():
 def sign_in():
     form = SignInForm(request.form)
     if request.method == 'POST' and form.validate():
+        if (form.nickname.data == 'admin' and form.password.data == 'admin'):
+            var = {}
+            session["admin"] = True
+            var['title'] = 'FSecurity | Admin'
+            return redirect(url_for('show_all_files'))
         db = get_db()
         query = db.cursor().execute("select * from profile where login = ? and password =? ;", \
                            [form.nickname.data, form.password.data]).fetchall()
