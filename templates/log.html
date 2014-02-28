@@ -3,9 +3,18 @@
 
 
 {% block body %}
+
+	<table>
+	{% for line in query %}
+		<tr>
+		{% for cell in line%}
+	    	<td>{{cell}}</td>
+    	{% endfor %}
+		</tr>
+  	{% endfor %}
+	</table>
+	<dt><a href="{{ url_for('show_all_files') }}">Files</a></dt>
 	<dt><a href="{{ url_for('index') }}">Main page</a></dt>
-	<h3>{{file_title}}</h3>
-	<p>{{file_content}}</p>
 {% endblock %}
 {% block info %}
     

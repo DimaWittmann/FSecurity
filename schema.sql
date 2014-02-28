@@ -3,7 +3,9 @@ create table profile(
     profile_id integer primary key autoincrement,
     login varchar(20) not null,
     password varchar(20) not null,
-    email varchar not null
+    email varchar not null,
+    question varchar,
+    answer varchar
 );
 
 
@@ -20,6 +22,7 @@ create table log(
 	log_id integer primary key autoincrement,
 	profile_id integer,
 	description varchar,
-	warning_level integer
+	warning_level integer,
+    data integer
 );
 

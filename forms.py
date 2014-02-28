@@ -21,4 +21,10 @@ class RegistrationForm(Form):
     
     email = TextField("E-Mail", [validators.Email("EMail")])
 
+    question = TextField("Question", [validators.required("Please, enter question"), ])
 
+    answer = TextField("Answer", [validators.required("Please, enter answer"), ])
+
+
+class QuestionForm(Form):
+    answer = TextField("Answer", [validators.required("Please, enter Answer"), ])

@@ -2,8 +2,9 @@ import sqlite3
 from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash
 import os.path
-from forms import NewFileForm, SignInForm, RegistrationForm
+from forms import NewFileForm, SignInForm, RegistrationForm, QuestionForm
 from flask.ext.mail import Mail, Message
+from time import time, localtime, strftime
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -30,6 +31,9 @@ mail = Mail(app)
 
 app.config.from_envvar('FLASKR_SETTINGS', silent=True)
 
+LAST_REFRESH = time()
+MAX_DELAY = 200
+NEXT_URL = None
 
 def connect_db():
     """Connects to the specific database."""
@@ -38,7 +42,8 @@ def connect_db():
 
 
 def get_db():
-    """Opens a new database connection if there is none yet for the
+    """
+    Opens a new database connection if there is none yet for the
     current application context.
     """
     if not hasattr(g, 'sqlite_db'):
@@ -58,11 +63,35 @@ def init_db():
             db.cursor().executescript(f.read())
         db.commit()
 
+@app.route('/question', methods=['GET', 'POST'])
+def question():
+
+    form = QuestionForm(request.form)
+    db = get_db()
+    (question, answer)= db.cursor().execute("select question, answer from profile where profile_id = ?;", \
+                           [session["id"]]).fetchone()
+
+    if request.method == 'POST' and form.validate():
+        
+        if(answer == form.answer.data):
+            return redirect(url_for('index'))
+        flash("Answer is incorrect")
+
+    var = {}
+    var['title'] = 'FSecurity | Question' 
+    var['form'] = form
+    var['question'] = question
+    return render_template('question.html', **var)
+
+
 def is_logged():
-    if(session["admin"]):
+    if session.get("admin"):
         return True
-    
-    return session["sign_in"]
+
+    if not session.get("sign_in"):
+        return False 
+
+    return True
 
 
 def send_mail(recipient, title, text):
@@ -79,20 +108,22 @@ def send_mail(recipient, title, text):
 def index():
     var = {}
     var['title'] = 'FSecurity'
-    if hasattr(session, "sign_in"):
-        if session["sign_in"]:
-            var['title'] = 'FSecurity | {user}'.format(user=session["nickname"])
-            
-            
 
-        
+    if is_logged():
+        var['title'] = 'FSecurity | {user}'.format(user=session["nickname"])
     return render_template('index.html', **var)
 
 
 def create_new_file(title, text, modify=False):
     
     if is_logged():
+        global LAST_REFRESH
         
+        if (time() - LAST_REFRESH) > MAX_DELAY:
+            LAST_REFRESH = time()
+            return redirect(url_for('question'))
+        LAST_REFRESH = time()
+
         dir_name = "Files/{user}".format(user=session["nickname"])
         file_name = "{dir}/{file}".format(dir=dir_name, file=title)
         
@@ -109,9 +140,9 @@ def create_new_file(title, text, modify=False):
                 file.write(text)
                 flash("{file} is created".format(file=title))
                 db = get_db()
-                db.cursor().execute('insert into log(profile_id, description, warning_level) values(?, ?, ?);', \
+                db.cursor().execute('insert into log(profile_id, description, warning_level, data) values(?, ?, ?, ?);', \
                         [session["id"], 
-                        "user create {file}".format(file=title), 0])
+                        "user create {file}".format(file=title), 0, time()])
                 db.commit()
         elif modify:
             
@@ -119,9 +150,9 @@ def create_new_file(title, text, modify=False):
                 file.write(text)
                 flash("{file} is modify".format(file=title))
                 db = get_db()
-                db.cursor().execute('insert into log(profile_id, description, warning_level) values(?, ?, ?);', \
+                db.cursor().execute('insert into log(profile_id, description, warning_level, data) values(?, ?, ?, ?);', \
                         [session["id"], 
-                        "user modify {file}".format(file=title), 0])
+                        "user modify {file}".format(file=title), 0, time()])
                 db.commit()
         else:
             flash("{file} is exists".format(file=title))
@@ -133,7 +164,13 @@ def create_file():
     if not is_logged():
         flash("Please, sign in")
         return redirect(url_for('index'))
-    
+
+    global LAST_REFRESH
+    if (time() - LAST_REFRESH) > MAX_DELAY:
+        LAST_REFRESH = time()
+        return redirect(url_for('question'))
+    LAST_REFRESH = time()
+
     form = NewFileForm(request.form)
     if request.method == 'POST' and form.validate():
         create_new_file(form.title.data, form.content.data)
@@ -151,6 +188,11 @@ def modify_file(file_id):
         flash("Please, sign in")
         return redirect(url_for('index'))
 
+    global LAST_REFRESH
+    LAST_REFRESH = time()
+    if (time() - LAST_REFRESH) > MAX_DELAY:
+        
+        return redirect(url_for('question'))
 
     form = NewFileForm(request.form)
     if request.method == 'POST' and form.validate():
@@ -177,6 +219,12 @@ def file(file_id):
         flash("Please, sign in")
         return redirect(url_for('index'))
 
+    global LAST_REFRESH
+    
+    if (time() - LAST_REFRESH) > MAX_DELAY:
+        LAST_REFRESH = time()
+        return redirect(url_for('question'))
+    LAST_REFRESH = time()
     db = get_db()
     query = db.cursor().execute("select title, reference from file where file_id = ?;", \
                            [file_id]).fetchone()
@@ -195,6 +243,12 @@ def delete_file(file_id):
         flash("Please, sign in")
         return redirect(url_for('index'))
 
+    global LAST_REFRESH
+    
+    if (time() - LAST_REFRESH) > MAX_DELAY:
+        LAST_REFRESH = time()
+        return redirect(url_for('question'))
+    LAST_REFRESH = time()
     db = get_db()
     query = db.cursor().execute("select file_id, title, reference from file where file_id = ?;", \
                            [file_id]).fetchone()
@@ -204,9 +258,9 @@ def delete_file(file_id):
     db.commit()
     flash("File {file} is deleted".format(file=query[1]))
     db = get_db()
-    db.cursor().execute('insert into log(profile_id, description, warning_level) values(?, ?, ?);', \
+    db.cursor().execute('insert into log(profile_id, description, warning_level,data) values(?, ?, ?, ?);', \
             [session["id"], 
-            "user create {file}".format(file=query[1]), 1])
+            "user delete {file}".format(file=query[1]), 1, time()])
     db.commit()
     return redirect(url_for('index'))
 
@@ -216,7 +270,14 @@ def old_files():
     if not is_logged():
         flash("Please, sign in")
         return redirect(url_for('index'))
-    
+
+
+
+    global LAST_REFRESH
+    if (time() - LAST_REFRESH) > MAX_DELAY:   
+        LAST_REFRESH = time()  
+        return redirect(url_for('question'))
+    LAST_REFRESH = time()
     var = {}
     var['title'] = 'FSecurity | {user} files'.format(user=session["nickname"])
     db = get_db()
@@ -233,8 +294,8 @@ def registration():
         db = get_db()
         count = db.execute("select count(*) from profile where login = ? ;", [form.nickname.data]).fetchone()[0]
         if (count == 0):
-            db.cursor().execute('insert into profile(login, password, email) values(?, ?, ?);', \
-                       [form.nickname.data, form.password.data, form.email.data])
+            db.cursor().execute('insert into profile(login, password, email, question, answer) values(?, ?, ?, ?, ?);', \
+                       [form.nickname.data, form.password.data, form.email.data, form.question.data, form.answer.data])
             db.commit()
             
             title = "FSecurity registration"
@@ -244,13 +305,18 @@ def registration():
             Your password is {password} 
             """.format(user=form.nickname.data, password=form.password.data)
             
-            send_mail(form.email.data, title, text)
+            try:
+                send_mail(form.email.data, title, text)
+            except Exception, e:
+                pass
+            
+
             
             flash('Thank you for registering')
             
             db = get_db()
-            db.cursor().execute('insert into log(profile_id, description, warning_level) values(?, ?, ?);', \
-            [session["id"], "{user} created".format(user=form.nickname.data), 0])
+            db.cursor().execute('insert into log(description, warning_level, data) values(?, ?, ?);', \
+            ["{user} created".format(user=form.nickname.data), 0, time()])
             db.commit()
             
             return redirect(url_for('index'))
@@ -263,9 +329,29 @@ def registration():
     var['form'] = form
     return render_template('registration.html', **var)
 
+@app.route('/admin/logs')
+def show_logs():
+    if not session.get('admin'):
+        return redirect(url_for('index'))
+
+    db = get_db()
+    query = db.cursor().execute("select * from log").fetchall()
+
+    result = []
+    for q in query:
+        t = strftime("%b %d %Y %H:%M:%S", localtime(q[4]))
+        q = (q[0], q[1], q[2], q[3], t)
+        result.append(q)
+
+    var = {}
+    var['title'] = 'FSecurity | logs'
+    var['query'] = result
+    return render_template('log.html', **var)
+
+
 @app.route('/admin/files')
 def show_all_files():
-    if not session['admin']:
+    if not session.get('admin'):
         return redirect(url_for('index'))
     
     db = get_db()
@@ -309,9 +395,9 @@ def sign_in():
         else:
             flash("Wrong user")
             db = get_db()
-            db.cursor().execute('insert into log(profile_id, description, warning_level) values(?, ?, ?);', \
+            db.cursor().execute('insert into log(profile_id, description, warning_level, data) values(?, ?, ?, ?);', \
             [None, "{user} try to enter with {password}"\
-             .format(user=form.nickname.data, password=form.password.data), 2])
+             .format(user=form.nickname.data, password=form.password.data), 2, time()])
             db.commit()
         
     var = {}

@@ -3,9 +3,12 @@
 
 
 {% block body %}
-	<dt><a href="{{ url_for('index') }}">Main page</a></dt>
-	<h3>{{file_title}}</h3>
-	<p>{{file_content}}</p>
+
+	<h1>{{question}}</h1>
+	<form method="post" action="{{ url_for('question') }}">
+		{{render_field(form.answer)}}
+		<p><input type="submit" value="Answer"/></p>
+	</form>
 {% endblock %}
 {% block info %}
     
